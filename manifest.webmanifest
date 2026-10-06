@@ -1,0 +1,12 @@
+{
+  "name": "ОГЭ-тренажёр по математике",
+  "short_name": "ОГЭ матем.",
+  "description": "Задания 1–19 ОГЭ по математике: новые числа, проверка и разбор ошибок, вариант на время, статистика.",
+  "lang": "ru",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f7f5",
+  "theme_color": "#2a78d6",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

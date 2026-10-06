@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta
+      name="description"
+      content="Тренажёр для подготовки к ОГЭ по математике: задания 1–19 с новыми числами, мгновенная проверка, разбор ошибок, вариант на время и статистика."
+    />
+    <meta name="theme-color" content="#f7f7f5" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#131312" media="(prefers-color-scheme: dark)" />
+    <title>ОГЭ-тренажёр по математике</title>
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#/"
+        >ОГЭ<span class="brand-long"><span class="dot">·</span>математика</span></a
+      >
+      <nav class="topnav" aria-label="Разделы">
+        <a href="#/train" data-nav="train">Тренировка</a>
+        <a href="#/variant" data-nav="variant">Вариант</a>
+        <a href="#/stats" data-nav="stats">Статистика</a>
+      </nav>
+    </header>
+
+    <main id="app" tabindex="-1">
+      <noscript><p class="card">Для работы тренажёра включите JavaScript.</p></noscript>
+    </main>
+
+    <div id="tooltip" class="tooltip" role="tooltip" hidden></div>
+
+    <!-- Порядок важен: ядро → генераторы → логика → интерфейс.
+         Автотесты загружают те же файлы, кроме помеченных data-browser-only. -->
+    <script src="js/core/rng.js"></script>
+    <script src="js/core/frac.js"></script>
+    <script src="js/core/format.js"></script>
+    <script src="js/core/expr.js"></script>
+    <script src="js/core/draw.js"></script>
+    <script src="js/core/geo.js"></script>
+    <script src="js/core/answer.js"></script>
+    <script src="js/tasks/registry.js"></script>
+    <script src="js/tasks/practice.js"></script>
+    <script src="js/tasks/t06.js"></script>
+    <script src="js/tasks/t07.js"></script>
+    <script src="js/tasks/t08.js"></script>
+    <script src="js/tasks/t09.js"></script>
+    <script src="js/tasks/t10.js"></script>
+    <script src="js/tasks/t11.js"></script>
+    <script src="js/tasks/t12.js"></script>
+    <script src="js/tasks/t13.js"></script>
+    <script src="js/tasks/t14.js"></script>
+    <script src="js/tasks/t15.js"></script>
+    <script src="js/tasks/t16.js"></script>
+    <script src="js/tasks/t17.js"></script>
+    <script src="js/tasks/t18.js"></script>
+    <script src="js/tasks/t19.js"></script>
+    <script src="js/variant.js"></script>
+    <script src="js/stats.js"></script>
+    <script src="js/chart.js"></script>
+    <script src="js/app.js" data-browser-only></script>
+  </body>
+</html>
