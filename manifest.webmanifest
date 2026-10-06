@@ -1,0 +1,26 @@
+{
+  "id": "./",
+  "name": "ОГЭ-тренажёр по математике",
+  "short_name": "ОГЭ матем.",
+  "description": "Задания 1–22 ОГЭ по математике: новые числа, проверка и пошаговый разбор, работа над ошибками, вариант на время, статистика. Работает без интернета.",
+  "lang": "ru",
+  "dir": "ltr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f7f7f5",
+  "theme_color": "#2a78d6",
+  "categories": ["education"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Работа над ошибками", "short_name": "Ошибки", "url": "./index.html#/train/review", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Тренировка", "url": "./index.html#/train", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Вариант на время", "short_name": "Вариант", "url": "./index.html#/variant", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
