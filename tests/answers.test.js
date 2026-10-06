@@ -28,6 +28,17 @@ function verify(num, seed, opts) {
   if (t.answer.type === 'number') {
     assert.equal(typeof expected, 'number', where + ': решатель должен вернуть число');
     assert.ok(close(expected, t.answer.value.toNumber()), where + ': решатель получил ' + expected + ', генератор — ' + t.answerText);
+  } else if (t.answer.type === 'list') {
+    assert.ok(Array.isArray(expected), where + ': решатель должен вернуть список');
+    const got = t.answer.value.map((v) => v.toNumber());
+    const exp = expected.slice().sort((a, b) => a - b);
+    assert.equal(got.length, exp.length, where + ': решатель получил ' + exp.join('; ') + ', генератор — ' + t.answerText);
+    got.forEach((v, i) => assert.ok(close(v, exp[i]), where + ': решатель получил ' + exp.join('; ') + ', генератор — ' + t.answerText));
+  } else if (t.answer.type === 'pairs') {
+    const got = t.answer.value.map((p) => p.map((v) => v.toNumber()));
+    const exp = expected.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    assert.equal(got.length, exp.length, where);
+    got.forEach((p, i) => assert.ok(close(p[0], exp[i][0]) && close(p[1], exp[i][1]), where + ': решатель получил ' + JSON.stringify(exp) + ', генератор — ' + t.answerText));
   } else {
     assert.equal(String(expected), t.answer.value, where);
   }

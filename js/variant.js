@@ -1,5 +1,6 @@
 /*
  * Полный вариант первой части (задания 1–19) и его проверка.
+ * Задания второй части (20–22) тренируются отдельно и в вариант не входят.
  */
 (function (root) {
   'use strict';
@@ -18,7 +19,7 @@
     const s = seed === undefined ? OGE.randomSeed() : seed >>> 0;
     // задания 1–5 строятся из одного зерна — общий сюжет
     const practiceSeed = OGE.deriveSeed(s, 'practice');
-    const tasks = OGE.TASK_NUMBERS.map((n) => OGE.generateTask(n, n <= 5 ? practiceSeed : OGE.deriveSeed(s, n)));
+    const tasks = OGE.PART1.map((n) => OGE.generateTask(n, n <= 5 ? practiceSeed : OGE.deriveSeed(s, n)));
     return { seed: s, tasks };
   }
 

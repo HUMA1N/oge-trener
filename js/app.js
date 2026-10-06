@@ -1,5 +1,6 @@
 /*
- * Интерфейс тренажёра: главная, тренировка по номеру, вариант на время, статистика.
+ * Интерфейс тренажёра: главная, тренировка по номеру, работа над ошибками,
+ * вариант на время, статистика, установка как приложение.
  * Маршруты — через location.hash, поэтому сайт работает и с диска (file://), и на любом хостинге.
  */
 (function () {
@@ -68,17 +69,46 @@
   }
   function answerInput(task, attrs) {
     const numeric = task.answer.type === 'number';
+    const many = task.answer.type === 'list' || task.answer.type === 'pairs';
+    // для нескольких чисел нужна обычная клавиатура: на цифровой нет «;» и скобок
+    const keys = many
+      ? '<span class="ins-keys">' +
+        (task.answer.type === 'pairs' ? ['(', ')'] : [])
+          .concat([';', '−', '/'])
+          .map((k) => '<button type="button" class="btn ins-btn" data-act="ins" data-ins="' + k + '" aria-label="Вставить ' + k + '">' + k + '</button>')
+          .join('') +
+        '</span>'
+      : '';
     return (
-      '<input class="answer-input" ' +
+      '<input class="answer-input' +
+      (many ? ' wide' : '') +
+      '" ' +
       (attrs || '') +
       ' type="text" autocomplete="off" autocapitalize="off" spellcheck="false" ' +
       'inputmode="' +
-      (numeric ? 'decimal' : 'numeric') +
-      '" enterkeyhint="done" placeholder="Ответ" aria-label="Ответ на задание ' +
+      (many ? 'text' : numeric ? 'decimal' : 'numeric') +
+      '" enterkeyhint="done" placeholder="' +
+      (task.answer.type === 'pairs' ? '(x; y), (x; y)' : many ? 'Ответ через ;' : 'Ответ') +
+      '" aria-label="Ответ на задание ' +
       task.num +
       '">' +
-      (numeric && !/class="opts/.test(task.html) ? '<button type="button" class="btn sign-btn" data-act="sign" aria-label="Поменять знак">±</button>' : '')
+      (numeric && !/class="opts/.test(task.html) ? '<button type="button" class="btn sign-btn" data-act="sign" aria-label="Поменять знак">±</button>' : '') +
+      keys
     );
+  }
+  // Вставка символа в позицию курсора (кнопки «;», «−», «/» для телефона).
+  function insertAtCursor(input, str) {
+    const a = input.selectionStart === null ? input.value.length : input.selectionStart;
+    const b = input.selectionEnd === null ? a : input.selectionEnd;
+    const ins = str === ';' ? '; ' : str;
+    input.value = input.value.slice(0, a) + ins + input.value.slice(b);
+    const pos = a + ins.length;
+    input.focus();
+    try {
+      input.setSelectionRange(pos, pos);
+    } catch {
+      /* старые браузеры */
+    }
   }
   function contextBlock(ctx, open) {
     return (
@@ -115,13 +145,16 @@
     if (parts[0] === 'train') return renderTrainPicker();
     if (parts[0] === 'variant') return renderVariant();
     if (parts[0] === 'stats') return renderStats();
+    if (parts[0] === 'install') return renderInstall();
     return renderHome();
   }
 
   // ---------- главная ----------
-  function numGrid(summary) {
+  function numGrid(summary, cls) {
     return (
-      '<div class="num-grid">' +
+      '<div class="num-grid' +
+      (cls ? ' ' + cls : '') +
+      '">' +
       summary
         .map((s) => {
           const acc = s.errorRate === null ? 0 : 1 - s.errorRate;
@@ -170,15 +203,23 @@
     } else {
       variantCta = '<div class="select-row">' + durationPicker(dur) + '</div><button class="btn primary" data-act="start-variant">Начать вариант</button>';
     }
+    const review = OGE.stats.reviewList(data);
     render(
       '<section class="hero"><h1>Тренажёр ОГЭ по математике</h1>' +
-        '<p>Первая часть: задания 1–19. Каждый раз — новые числа, ответ проверяется сразу, а при ошибке показывается пошаговый разбор.</p></section>' +
+        '<p>Задания 1–19 первой части и 20–22 второй. Каждый раз — новые числа, ответ проверяется сразу, а при ошибке показывается пошаговый разбор.</p></section>' +
+        installBanner() +
         '<div class="modes">' +
         '<section class="card mode"><h2><span class="mode-icon" aria-hidden="true">№</span>Тренировка по номеру задания</h2>' +
         '<p class="muted small">Выберите номер — задачи этого типа будут идти одна за другой. Полоска под номером — доля верных ответов.</p>' +
-        numGrid(summary) +
+        numGrid(summary.filter((x) => x.num <= 19)) +
+        '<h3 class="part-title">Вторая часть <span class="muted small">— развёрнутое решение</span></h3>' +
+        numGrid(
+          summary.filter((x) => x.num >= 20),
+          'part2',
+        ) +
         (total ? '<div class="btn-row" style="margin-top:12px"><a class="btn" href="#/train/weak">Тренировать слабые места</a></div>' : '') +
         '</section>' +
+        reviewCard(review, data.reviewFixed) +
         '<section class="card mode"><h2><span class="mode-icon" aria-hidden="true">⏱</span>Полный вариант на время</h2>' +
         '<p class="muted small">19 заданий первой части, как на экзамене. Ответы проверяются после завершения, результат переводится в отметку.</p>' +
         variantCta +
@@ -198,40 +239,107 @@
     );
   }
 
+  // ---------- работа над ошибками ----------
+  function streakDots(streak) {
+    const goal = OGE.stats.REVIEW_GOAL;
+    let out = '<span class="streak" aria-label="Верно подряд: ' + streak + ' из ' + goal + '">';
+    for (let i = 0; i < goal; i++) out += '<i class="' + (i < streak ? 'on' : '') + '"></i>';
+    return out + '</span>';
+  }
+  function reviewItems(list) {
+    return (
+      '<ul class="review-list">' +
+      list
+        .map(
+          (e) =>
+            '<li><span class="n">' +
+            e.num +
+            '</span><span class="review-main"><span>' +
+            esc(OGE.TOPICS[e.num] || '') +
+            '</span>' +
+            (e.example ? '<span class="muted small review-ex">' + esc(e.example) + '</span>' : '') +
+            '</span>' +
+            streakDots(e.streak) +
+            '</li>',
+        )
+        .join('') +
+      '</ul>'
+    );
+  }
+  function reviewCard(list, fixed) {
+    const goal = OGE.stats.REVIEW_GOAL;
+    let body;
+    if (list.length) {
+      body =
+        '<p>Типов заданий с ошибками: <b>' +
+        list.length +
+        '</b>. Каждый будет повторяться, пока вы не решите его ' +
+        goal +
+        ' раза подряд верно.</p>' +
+        '<a class="btn primary" href="#/train/review">Начать работу над ошибками</a>';
+    } else {
+      body =
+        '<p class="muted">' +
+        (fixed ? 'Все ошибки отработаны — отлично! ' : '') +
+        'Сюда попадают типы заданий, в которых вы ошиблись (в тренировке или в варианте). Они повторяются, пока не будут решены ' +
+        goal +
+        ' раза подряд верно.</p>';
+    }
+    return '<section class="card mode"><h2><span class="mode-icon" aria-hidden="true">↻</span>Работа над ошибками</h2>' + body + '</section>';
+  }
+
   // ---------- выбор номера ----------
+  function pickerItem(s) {
+    return (
+      '<li><a href="#/train/' +
+      s.num +
+      '"><span class="n">' +
+      s.num +
+      '</span><span>' +
+      esc(OGE.TOPICS[s.num]) +
+      '</span>' +
+      '<span class="stat' +
+      (s.weak ? ' bad' : '') +
+      '">' +
+      (s.attempts ? 'ошибок ' + pct(s.errorRate) + ' · ' + s.attempts + ' ' + plural(s.attempts, 'попытка', 'попытки', 'попыток') : 'не решали') +
+      '</span></a></li>'
+    );
+  }
   function renderTrainPicker() {
-    const summary = OGE.stats.summary(OGE.stats.load());
+    const data = OGE.stats.load();
+    const summary = OGE.stats.summary(data);
+    const nReview = OGE.stats.reviewList(data).length;
     render(
       '<h1>Тренировка</h1><p class="muted">Выберите номер задания. Задачи генерируются заново при каждом запуске.</p>' +
-        '<div class="btn-row" style="margin:12px 0 14px"><a class="btn primary" href="#/train/weak">Слабые места вперемешку</a></div>' +
+        '<div class="btn-row" style="margin:12px 0 14px"><a class="btn primary" href="#/train/weak">Слабые места вперемешку</a>' +
+        '<a class="btn" href="#/train/review">Работа над ошибками' +
+        (nReview ? ' <span class="count">' + nReview + '</span>' : '') +
+        '</a></div>' +
+        '<h2 class="part-title">Первая часть</h2>' +
         '<ul class="num-list">' +
         summary
-          .map(
-            (s) =>
-              '<li><a href="#/train/' +
-              s.num +
-              '"><span class="n">' +
-              s.num +
-              '</span><span>' +
-              esc(OGE.TOPICS[s.num]) +
-              '</span>' +
-              '<span class="stat' +
-              (s.weak ? ' bad' : '') +
-              '">' +
-              (s.attempts ? 'ошибок ' + pct(s.errorRate) + ' · ' + s.attempts + ' ' + plural(s.attempts, 'попытка', 'попытки', 'попыток') : 'не решали') +
-              '</span></a></li>',
-          )
+          .filter((s) => s.num <= 19)
+          .map(pickerItem)
+          .join('') +
+        '</ul>' +
+        '<h2 class="part-title">Вторая часть</h2>' +
+        '<p class="muted small">На экзамене эти задания оформляются с полным решением (по 2 балла). В тренажёре вводится итоговый ответ, а разбор показывает, как записать решение.</p>' +
+        '<ul class="num-list">' +
+        summary
+          .filter((s) => s.num >= 20)
+          .map(pickerItem)
           .join('') +
         '</ul>',
     );
   }
 
   // ---------- тренировка ----------
-  let train = null; // {mode, task, done, solved, correct}
+  let train = null; // {mode, task, done, solved, correct, lastKey}
+  const MIXED = { weak: 'Слабые места', review: 'Работа над ошибками' };
 
   function renderTrain(param) {
-    const mode = param === 'weak' ? 'weak' : parseInt(param, 10);
-    if (mode !== 'weak' && !(mode >= 1 && mode <= 19)) {
+    const mode = MIXED[param] ? param : parseInt(param, 10);
+    if (!MIXED[mode] && !OGE.TOPICS[mode]) {
       location.hash = '#/train';
       return;
     }
@@ -241,20 +349,61 @@
 
   function nextTask() {
     const rng = OGE.createRng(OGE.randomSeed());
-    const num = train.mode === 'weak' ? OGE.stats.pickWeighted(OGE.stats.load(), rng) : train.mode;
-    train.task = OGE.generateTask(num, OGE.randomSeed());
+    if (train.mode === 'review') {
+      // тип, который больше нельзя построить (например, после обновления), убираем из списка
+      for (let tries = 0; tries < 50; tries++) {
+        const data = OGE.stats.load();
+        const e = OGE.stats.pickReview(data, rng, train.lastKey);
+        if (!e) return renderReviewDone();
+        try {
+          train.task = OGE.generateTask(e.num, OGE.randomSeed(), OGE.optsForSubtype(e.num, e.subtype));
+          train.task.subtype = e.subtype;
+          train.lastKey = e.key;
+          break;
+        } catch {
+          OGE.stats.dropReview(data, e.key);
+        }
+      }
+    } else {
+      const num = train.mode === 'weak' ? OGE.stats.pickWeighted(OGE.stats.load(), rng) : train.mode;
+      train.task = OGE.generateTask(num, OGE.randomSeed());
+    }
     train.done = false;
     drawTrain();
   }
 
-  function drawTrain() {
-    const t = train.task;
-    const title = train.mode === 'weak' ? 'Слабые места' : 'Задание ' + t.num;
+  function renderReviewDone() {
+    const data = OGE.stats.load();
     render(
       '<div class="crumbs"><a class="btn ghost" href="#/train">← Все задания</a></div>' +
+        '<section class="card empty-state"><h1>Работа над ошибками</h1>' +
+        (train && train.solved
+          ? '<p class="verdict-big">Все ошибки отработаны!</p><p>За это занятие решено задач: ' + train.solved + ', верно: ' + train.correct + '.</p>'
+          : '<p>Список пуст: ' + (data.reviewFixed ? 'все ошибки уже отработаны.' : 'ошибок пока не было.') + '</p>') +
+        '<p class="muted small">Когда вы ошибётесь в тренировке или в варианте, тип задания появится здесь.</p>' +
+        '<div class="btn-row" style="justify-content:center"><a class="btn primary" href="#/train">К тренировке</a><a class="btn" href="#/variant">Решить вариант</a></div></section>',
+    );
+  }
+
+  function reviewProgressHtml(t) {
+    const e = OGE.stats.reviewState(OGE.stats.load(), t.num, t.subtype);
+    if (!e) return '';
+    return '<div class="review-progress">Верно подряд: ' + streakDots(e.streak) + ' <span class="muted small">' + e.streak + ' из ' + OGE.stats.REVIEW_GOAL + '</span></div>';
+  }
+
+  function drawTrain() {
+    const t = train.task;
+    const left = train.mode === 'review' ? OGE.stats.reviewList(OGE.stats.load()).length : 0;
+    render(
+      '<div class="crumbs"><a class="btn ghost" href="#/train">← Все задания</a>' +
+        (MIXED[train.mode] ? '<span class="mode-name">' + MIXED[train.mode] + (left ? ' · осталось типов: ' + left : '') + '</span>' : '') +
+        '</div>' +
         '<article class="card task-card">' +
-        '<div class="task-head"><span class="badge">' +
-        (train.mode === 'weak' ? 'Задание ' + t.num : title) +
+        '<div class="task-head"><span class="badge' +
+        (t.num >= 20 ? ' part2' : '') +
+        '">' +
+        'Задание ' +
+        t.num +
         '</span>' +
         '<span class="topic">' +
         esc(t.topic) +
@@ -262,6 +411,7 @@
         '<span class="session" aria-live="polite">' +
         (train.solved ? 'верно ' + train.correct + ' из ' + train.solved : '') +
         '</span></div>' +
+        (train.mode === 'review' ? reviewProgressHtml(t) : '') +
         (t.context ? contextBlock(t.context, true) : '') +
         '<div class="task-body">' +
         t.html +
@@ -297,16 +447,29 @@
     train.done = true;
     train.solved++;
     if (ok) train.correct++;
-    OGE.stats.record(t.num, t.subtype, ok);
+    const before = OGE.stats.reviewState(OGE.stats.load(), t.num, t.subtype);
+    const after = OGE.stats.reviewState(OGE.stats.record(t.num, t.subtype, ok), t.num, t.subtype);
+    if (!ok) OGE.stats.describeReview(t.num, t.subtype, exampleText(t));
     input.readOnly = true;
     input.classList.add(ok ? 'ok' : 'err');
     app.querySelectorAll('.answer-form button').forEach((b) => (b.disabled = true));
     app.querySelector('.session').textContent = 'верно ' + train.correct + ' из ' + train.solved;
     let fb;
+    const goal = OGE.stats.REVIEW_GOAL;
+    let reviewNote = '';
+    if (ok && before && !after) reviewNote = '<p class="review-note good">Тип задания отработан: ' + goal + ' верных ответа подряд. Он убран из «Работы над ошибками».</p>';
+    else if (ok && after) reviewNote = '<p class="review-note">«Работа над ошибками»: верно подряд ' + after.streak + ' из ' + goal + '.</p>';
+    else if (!ok && !before) reviewNote = '<p class="review-note">Этот тип задания добавлен в <a href="#/train/review">«Работу над ошибками»</a>.</p>';
+    else if (!ok && before && before.streak) reviewNote = '<p class="review-note">Серия верных ответов сброшена: нужно ' + goal + ' подряд.</p>';
+    if (train.mode === 'review') {
+      const prog = app.querySelector('.review-progress');
+      if (prog) prog.outerHTML = after ? reviewProgressHtml(t) : '<div class="review-progress done">Отработано ✓</div>';
+    }
     if (ok) {
       fb =
         '<div class="feedback ok"><div class="verdict">Верно!</div>' +
         (res.note ? '<p>' + esc(res.note) + '</p>' : '') +
+        reviewNote +
         '<details class="solution"><summary>Посмотреть решение</summary>' +
         stepsHtml(t) +
         '</details></div>';
@@ -320,6 +483,7 @@
         '</b>' +
         (res.gaveUp ? '' : ', ваш ответ: ' + esc(input.value.trim())) +
         '.</p>' +
+        reviewNote +
         stepsHtml(t) +
         '</div>';
     }
@@ -328,6 +492,14 @@
     row.innerHTML = '<button type="button" class="btn primary" data-act="next">Следующая задача →</button>';
     const nextBtn = row.querySelector('button');
     if (finePointer || ok) nextBtn.focus({ preventScroll: !ok });
+  }
+
+  // Короткий пример условия для списка ошибок.
+  function exampleText(t) {
+    const div = document.createElement('div');
+    div.innerHTML = t.html.replace(/<svg[\s\S]*?<\/svg>/g, ' ').replace(/<div class="opts[\s\S]*$/, '');
+    div.querySelectorAll('.hint-format').forEach((n) => n.remove());
+    return div.textContent.replace(/\s+/g, ' ').trim();
   }
 
   // ---------- вариант ----------
@@ -462,7 +634,10 @@
     stopTimer();
     const tasks = variantTasks(v);
     const res = OGE.variant.score(tasks, v.answers);
-    res.results.forEach((r, i) => OGE.stats.record(r.num, tasks[i].subtype, r.status === 'correct'));
+    res.results.forEach((r, i) => {
+      OGE.stats.record(r.num, tasks[i].subtype, r.status === 'correct');
+      if (r.status !== 'correct') OGE.stats.describeReview(r.num, tasks[i].subtype, exampleText(tasks[i]));
+    });
     v.finishedAt = Math.min(Date.now(), v.startedAt + v.duration * 60 * 1000);
     v.timeUp = !!timeUp;
     lsSet(VKEY, v);
@@ -551,7 +726,8 @@
             wrong
               .map((r) => '<a class="chip ' + r.status + '" href="#/train/' + r.num + '" title="Тренировать задание ' + r.num + '">' + r.num + '</a>')
               .join('') +
-            '</div><p class="muted small">Нажмите на номер, чтобы потренировать такие задачи.</p></section>'
+            '</div><p class="muted small">Нажмите на номер, чтобы потренировать такие задачи. Типы заданий с ошибками добавлены в «Работу над ошибками».</p>' +
+            '<div class="btn-row"><a class="btn" href="#/train/review">Работа над ошибками</a></div></section>'
           : '') +
         '<section class="card"><h2>Задания</h2><ul class="result-list">' +
         list +
@@ -651,6 +827,7 @@
             '</ul><div class="btn-row" style="margin-top:12px"><a class="btn primary" href="#/train/weak">Слабые места вперемешку</a></div>'
           : '<p class="muted">Пока нет заданий, где ошибок заметно больше, чем в остальных. Решите по 3–5 задач каждого номера, чтобы картина стала точнее.</p>') +
         '</section>' +
+        reviewSection(data) +
         (variants.length
           ? '<section class="card"><h2>Пробные варианты</h2><p class="muted small">Первичный балл за первую часть (из 19). Линии — границы отметок «3» и «4».</p>' +
             '<div class="chart-wrap">' +
@@ -660,9 +837,105 @@
         '<div class="btn-row"><button type="button" class="btn ghost danger" data-act="reset-stats">Сбросить статистику</button></div>',
     );
   }
+  function reviewSection(data) {
+    const list = OGE.stats.reviewList(data);
+    return (
+      '<section class="card"><h2>Работа над ошибками</h2>' +
+      (list.length
+        ? '<p class="muted small">Типы заданий, в которых были ошибки. Кружки — верные ответы подряд; после ' +
+          OGE.stats.REVIEW_GOAL +
+          ' тип исчезает из списка.' +
+          (data.reviewFixed ? ' Уже отработано: ' + data.reviewFixed + '.' : '') +
+          '</p>' +
+          reviewItems(list) +
+          '<div class="btn-row" style="margin-top:12px"><a class="btn primary" href="#/train/review">Начать работу над ошибками</a></div>'
+        : '<p class="muted">Список пуст' + (data.reviewFixed ? ': отработано типов — ' + data.reviewFixed + '.' : '.') + '</p>') +
+      '</section>'
+    );
+  }
   function tile(label, value) {
     return '<div class="tile-stat"><div class="label">' + label + '</div><div class="value">' + value + '</div></div>';
   }
+
+  // ---------- установка как приложение (PWA) ----------
+  let installPrompt = null; // событие beforeinstallprompt (Chrome, Edge, Яндекс Браузер на Android и ПК)
+  const isStandalone = () =>
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+  const offlineCapable = () => 'serviceWorker' in navigator && /^https?:$/.test(location.protocol);
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    installPrompt = e;
+    const slot = document.querySelector('.install-slot');
+    if (slot) slot.outerHTML = installBanner();
+  });
+  window.addEventListener('appinstalled', () => {
+    installPrompt = null;
+    const slot = document.querySelector('.install-slot');
+    if (slot) slot.outerHTML = installBanner();
+  });
+
+  function installBanner() {
+    if (isStandalone() || (lsGet(PREFS) || {}).hideInstall) return '<div class="install-slot" hidden></div>';
+    return (
+      '<div class="install-slot card install-card"><div><b>Тренажёр можно установить на телефон</b>' +
+      '<p class="muted small">Он появится на главном экране как приложение и будет работать без интернета.</p></div>' +
+      '<div class="btn-row">' +
+      (installPrompt ? '<button type="button" class="btn primary" data-act="install">Установить</button>' : '<a class="btn primary" href="#/install">Как установить</a>') +
+      '<button type="button" class="btn ghost" data-act="hide-install">Скрыть</button></div></div>'
+    );
+  }
+
+  async function offlineStatus() {
+    if (!offlineCapable()) {
+      return location.protocol === 'file:'
+        ? 'Сайт открыт как файл с диска — он и так работает без интернета, но установить его как приложение можно только по ссылке (https://…), например с GitHub Pages.'
+        : 'Этот браузер не поддерживает работу без интернета.';
+    }
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      const keys = window.caches ? await caches.keys() : [];
+      if (reg && reg.active && keys.some((k) => k.indexOf('oge-trener') === 0)) return '✓ Файлы тренажёра сохранены на устройстве — он откроется и без интернета.';
+      return 'Файлы ещё сохраняются. Обновите страницу через несколько секунд, пока есть интернет.';
+    } catch {
+      return 'Не удалось проверить офлайн-режим.';
+    }
+  }
+
+  function renderInstall() {
+    setNav('');
+    const standalone = isStandalone();
+    render(
+      '<h1>Установка на телефон</h1>' +
+        (standalone ? '<section class="card feedback ok"><div class="verdict">Тренажёр уже установлен</div><p>Вы открыли его как приложение.</p></section>' : '') +
+        '<section class="card"><h2>Работа без интернета</h2><p class="offline-status muted">Проверяем…</p>' +
+        '<p class="small muted">Решённые задачи, статистика и список ошибок хранятся только на этом устройстве (в браузере). Если очистить данные браузера или удалить приложение, они пропадут.</p></section>' +
+        (installPrompt && !standalone ? '<div class="btn-row"><button type="button" class="btn primary" data-act="install">Установить сейчас</button></div>' : '') +
+        '<section class="card"><h2>Android (Chrome, Яндекс Браузер, Samsung Internet)</h2><ol>' +
+        '<li>Откройте сайт тренажёра в браузере (нужен интернет только в первый раз).</li>' +
+        '<li>Нажмите меню <b>⋮</b> в правом верхнем углу.</li>' +
+        '<li>Выберите <b>«Установить приложение»</b> или <b>«Добавить на главный экран»</b>.</li>' +
+        '<li>На главном экране появится значок «ОГЭ матем.». Открывайте тренажёр с него — даже без интернета.</li></ol></section>' +
+        '<section class="card"><h2>iPhone и iPad (Safari)</h2><ol>' +
+        '<li>Откройте сайт в <b>Safari</b> (в других браузерах на iPhone пункта может не быть).</li>' +
+        '<li>Нажмите кнопку <b>«Поделиться»</b> (квадрат со стрелкой вверх) внизу экрана.</li>' +
+        '<li>Пролистайте и выберите <b>«На экран „Домой“»</b>, затем <b>«Добавить»</b>.</li></ol></section>' +
+        '<section class="card"><h2>Компьютер (Chrome, Edge)</h2><p>В адресной строке справа появится значок установки (монитор со стрелкой) — нажмите его. Или: меню → <b>«Установить ОГЭ-тренажёр»</b> / <b>«Приложения» → «Установить этот сайт как приложение»</b>.</p></section>',
+    );
+    offlineStatus().then((msg) => {
+      const el = app.querySelector('.offline-status');
+      if (el) el.textContent = msg;
+    });
+  }
+
+  // Индикатор «нет сети» в шапке.
+  function updateNet() {
+    const el = document.querySelector('.net-status');
+    if (el) el.hidden = navigator.onLine !== false;
+  }
+  window.addEventListener('online', updateNet);
+  window.addEventListener('offline', updateNet);
+  updateNet();
 
   // ---------- подсказки на графиках ----------
   function showTip(target, x, y) {
@@ -757,6 +1030,30 @@
         }
         break;
       }
+      case 'ins': {
+        const input = act.closest('.answer-form').querySelector('.answer-input');
+        if (input && !input.readOnly) {
+          insertAtCursor(input, act.dataset.ins);
+          if (input.dataset.num) saveVariantAnswer(input.dataset.num, input.value);
+        }
+        break;
+      }
+      case 'install':
+        if (installPrompt) {
+          installPrompt.prompt();
+          installPrompt.userChoice.finally(() => {
+            installPrompt = null;
+            const slot = document.querySelector('.install-slot');
+            if (slot) slot.outerHTML = installBanner();
+          });
+        }
+        break;
+      case 'hide-install': {
+        lsSet(PREFS, Object.assign(lsGet(PREFS) || {}, { hideInstall: true }));
+        const slot = act.closest('.install-slot');
+        if (slot) slot.outerHTML = '<div class="install-slot" hidden></div>';
+        break;
+      }
       case 'start-variant':
         startVariant();
         break;
@@ -780,6 +1077,11 @@
         }
         break;
     }
+  });
+
+  // кнопки «;», «−», «/» не должны забирать фокус у поля ответа (иначе на телефоне прячется клавиатура)
+  app.addEventListener('pointerdown', (e) => {
+    if (e.target.closest && e.target.closest('.ins-btn')) e.preventDefault();
   });
 
   app.addEventListener('submit', (e) => {
@@ -814,7 +1116,7 @@
   route();
 
   // Офлайн-режим: кэширование файлов сайта (работает только на http/https).
-  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  if (offlineCapable()) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('sw.js').catch(() => {
         /* офлайн-режим необязателен */

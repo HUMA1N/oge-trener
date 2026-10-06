@@ -480,4 +480,157 @@ SOLVERS[19] = function (t) {
   return d.statements.map((s, i) => (s.truth === d.want ? i + 1 : '')).join('');
 };
 
-module.exports = { SOLVERS };
+// ---------- вторая часть ----------
+
+// Все корни g(x) = 0 на [lo; hi]: точки сетки с нулевым значением (касание)
+// и смены знака, уточнённые делением пополам. В найденной точке значение
+// должно быть близко к нулю (так отбрасываются полюса), а в округлённой —
+// определено (так отбрасываются выколотые точки).
+function numericRoots(g, lo, hi, n) {
+  const N = n || 200; // шагов на единицу
+  const out = [];
+  const add = (r) => {
+    if (out.every((q) => Math.abs(q - r) > 1e-6)) out.push(r);
+  };
+  const accept = (r) => {
+    const rr = Math.round(r * 1e6) / 1e6;
+    if (isFinite(g(rr)) && Math.abs(g(r)) < 1e-6) add(rr);
+  };
+  let px = null;
+  let pv = null;
+  for (let i = lo * N; i <= hi * N; i++) {
+    const xx = i / N;
+    const v = g(xx);
+    if (!isFinite(v)) {
+      px = null;
+      continue;
+    }
+    if (Math.abs(v) < 1e-9) add(xx);
+    else if (px !== null && Math.abs(pv) >= 1e-9 && Math.sign(v) !== Math.sign(pv)) {
+      let a = px;
+      let b = xx;
+      for (let k = 0; k < 60; k++) {
+        const m = (a + b) / 2;
+        const mv = g(m);
+        if (!isFinite(mv)) break;
+        if (Math.sign(mv) === Math.sign(g(a))) a = m;
+        else b = m;
+      }
+      accept((a + b) / 2);
+    }
+    px = xx;
+    pv = v;
+  }
+  return out.sort((a, b) => a - b);
+}
+
+// Корень монотонной функции на (lo; hi) делением пополам.
+function bisect(g, lo, hi) {
+  let a = lo;
+  let b = hi;
+  const sa = Math.sign(g(a));
+  assert(sa !== Math.sign(g(b)), 'нет смены знака');
+  for (let k = 0; k < 200; k++) {
+    const m = (a + b) / 2;
+    if (Math.sign(g(m)) === sa) a = m;
+    else b = m;
+  }
+  return (a + b) / 2;
+}
+function inText(t, nums) {
+  const txt = textOf(t.html);
+  nums.forEach((n) => assert(new RegExp('(^|[^\\d,])' + String(n).replace('.', ',') + '([^\\d,]|$)').test(txt), 'в условии нет числа ' + n));
+}
+
+SOLVERS[20] = function (t) {
+  const d = t.data;
+  if (d.kind === 'sets') return SOLVERS[13](t);
+  if (d.kind === 'roots') {
+    const roots = numericRoots(fn(['x'], d.f), -60, 60);
+    assert(roots.length >= 1, 'у уравнения должны быть корни');
+    return roots;
+  }
+  // система: пересечение параболы и прямой
+  const P = fn(['x'], d.curve);
+  const L = fn(['x'], d.line);
+  const xs = numericRoots((x) => P(x) - L(x), -60, 60);
+  assert(xs.length === 2, 'у системы должно быть два решения');
+  return xs.map((x) => [x, L(x)]);
+};
+
+SOLVERS[21] = function (t) {
+  const d = t.data;
+  switch (d.kind) {
+    case 'river':
+      inText(t, [d.S, d.v, d.dt]);
+      return bisect((u) => d.S / (d.v - u) - d.S / (d.v + u) - d.dt, 1e-9, d.v - 1e-9);
+    case 'river-stop':
+      inText(t, [d.S, d.v, d.stop, d.T]);
+      return bisect((u) => d.S / (d.v + u) + d.S / (d.v - u) + d.stop - d.T, 1e-9, d.v - 1e-9);
+    case 'pipes': {
+      inText(t, [d.V, d.d, d.t]);
+      const slow = bisect((x) => d.V / x - d.V / (x + d.d) - d.t, 1e-6, 1e5);
+      return d.askSecond ? slow + d.d : slow;
+    }
+    case 'work': {
+      inText(t, [d.T, d.p, d.q]);
+      // производительности: r1·p = r2·q, r1 + r2 = 1/T
+      const r1 = 1 / (d.T * (1 + d.p / d.q));
+      const r2 = 1 / d.T - r1;
+      assert(near(r1 * d.p, r2 * d.q), 'части работы не равны');
+      return d.askSecond ? 1 / r2 : 1 / r1;
+    }
+    case 'mixture': {
+      inText(t, [d.A, d.B, d.pr, d.q]);
+      // A·x + B·y = pr·(A + B), x + y = 2q — по формулам Крамера
+      const det = d.A - d.B;
+      const x = (d.pr * (d.A + d.B) - 2 * d.q * d.B) / det;
+      const y = (d.A * 2 * d.q - d.pr * (d.A + d.B)) / det;
+      assert(x > 0 && x < 100 && y > 0 && y < 100, 'концентрации вне диапазона');
+      return round(d.askSecond ? (d.B * y) / 100 : (d.A * x) / 100, 6);
+    }
+    case 'avg-half':
+      inText(t, [d.v1, d.v2]);
+      return 2 / (1 / d.v1 + 1 / d.v2);
+    case 'avg-parts': {
+      let dist = 0;
+      let time = 0;
+      d.parts.forEach((q) => {
+        dist += q.v * q.t;
+        time += q.t;
+      });
+      inText(
+        t,
+        d.parts.map((q) => q.v),
+      );
+      return dist / time;
+    }
+    case 'train':
+      inText(t, [d.v, d.w, d.s]);
+      return round((((d.same ? d.v - d.w : d.v + d.w) * 1000) / 3600) * d.s, 6);
+  }
+  throw new Error('неизвестный вид задачи ' + d.kind);
+};
+
+// Число общих точек графика с прямой y = m (line 'h') или y = kx (line 'k').
+function commonPoints(f, line, p) {
+  const g = line === 'h' ? (x) => f(x) - p : (x) => f(x) - p * x;
+  return numericRoots(g, -40, 40).length;
+}
+SOLVERS[22] = function (t) {
+  const d = t.data;
+  const f = fn(['x'], d.fjs);
+  const answer = t.answer.value.map((v) => v.toNumber());
+  // каждое значение из ответа даёт нужное число общих точек…
+  answer.forEach((p) => assert(commonPoints(f, d.line, p) === d.count, 'при параметре ' + p + ' число общих точек не ' + d.count));
+  // …а соседние и другие значения — нет
+  const others = [];
+  answer.forEach((p) => others.push(p - 0.13, p + 0.11));
+  for (let p = -30; p <= 30; p += 1.7) others.push(Math.round(p * 100) / 100);
+  others
+    .filter((p) => answer.every((a) => Math.abs(a - p) > 1e-6))
+    .forEach((p) => assert(commonPoints(f, d.line, p) !== d.count, 'при параметре ' + p + ' тоже ' + d.count + ' общих точек'));
+  return answer;
+};
+
+module.exports = { SOLVERS, numericRoots };

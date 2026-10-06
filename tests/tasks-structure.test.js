@@ -40,14 +40,22 @@ for (const num of OGE.TASK_NUMBERS) {
       assert.equal(unb, null, where + ': несбалансированные теги — ' + unb);
 
       // ответ
-      assert.ok(['number', 'seq', 'set'].includes(t.answer.type), where);
+      assert.ok(['number', 'seq', 'set', 'list', 'pairs'].includes(t.answer.type), where);
+      if (num <= 19) assert.ok(['number', 'seq', 'set'].includes(t.answer.type), where + ': в первой части — краткий ответ');
       const ok = OGE.answer.check(t.answer, t.answerText);
       assert.equal(ok.status, 'correct', where + ': собственный ответ «' + t.answerText + '» не проходит проверку');
-      if (t.answer.type === 'number') {
-        const v = t.answer.value;
-        assert.ok(v.isFiniteDecimal(), where + ': ответ должен быть конечной десятичной дробью, а не ' + v);
-        assert.ok(v.decimalPlaces() <= 4, where + ': слишком много знаков после запятой: ' + t.answerText);
-        assert.ok(Math.abs(v.toNumber()) < 1e6, where + ': слишком большое число ' + t.answerText);
+      const numbers = t.answer.type === 'number' ? [t.answer.value] : t.answer.type === 'list' ? t.answer.value : t.answer.type === 'pairs' ? [].concat(...t.answer.value) : null;
+      if (numbers) {
+        assert.ok(numbers.length >= 1, where + ': пустой ответ');
+        numbers.forEach((v) => {
+          assert.ok(v.isFiniteDecimal(), where + ': ответ должен быть конечной десятичной дробью, а не ' + v);
+          assert.ok(v.decimalPlaces() <= 4, where + ': слишком много знаков после запятой: ' + t.answerText);
+          assert.ok(Math.abs(v.toNumber()) < 1e6, where + ': слишком большое число ' + t.answerText);
+        });
+        if (t.answer.type !== 'number') {
+          const keys = t.answer.value.map((v) => String(v));
+          assert.equal(new Set(keys).size, keys.length, where + ': в ответе повторяются значения');
+        }
       } else {
         assert.match(t.answer.value, /^[1-9]+$/, where);
       }

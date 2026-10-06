@@ -5,7 +5,7 @@
  *     subtype,          — внутренний код разновидности (для тестов и статистики)
  *     html,             — условие (HTML)
  *     context,          — общий текст для заданий 1–5 {key, title, html}
- *     answer,           — {type: 'number'|'seq'|'set', value}
+ *     answer,           — {type: 'number'|'seq'|'set'|'list'|'pairs', value}
  *     steps,            — пошаговый разбор: массив HTML-фрагментов
  *     data,             — исходные параметры: по ним автотесты независимо
  *                         пересчитывают ответ
@@ -35,8 +35,14 @@
     17: 'Четырёхугольники',
     18: 'Фигуры на клетчатой бумаге',
     19: 'Геометрические утверждения',
+    20: 'Уравнения, неравенства, системы',
+    21: 'Текстовые задачи',
+    22: 'Графики функций с параметром',
   };
   OGE.TASK_NUMBERS = Object.keys(OGE.TOPICS).map(Number);
+  // Первая часть (краткий ответ, 1 балл) и вторая часть (развёрнутое решение, 2 балла).
+  OGE.PART1 = OGE.TASK_NUMBERS.filter((n) => n <= 19);
+  OGE.PART2 = OGE.TASK_NUMBERS.filter((n) => n >= 20);
   // Задания по геометрии (для условия «не менее 2 баллов по геометрии»).
   OGE.GEOMETRY = [15, 16, 17, 18, 19];
 
@@ -50,6 +56,14 @@
   };
   OGE.hasGenerator = (num) => !!generators[num];
 
+  // Параметры генератора, чтобы получить задачу той же разновидности
+  // (режим «Работа над ошибками»). У заданий 1–5 разновидность — «сюжет-номер».
+  OGE.optsForSubtype = function (num, subtype) {
+    if (!subtype) return {};
+    if (num <= 5) return { scenario: String(subtype).split('-')[0] };
+    return { subtype };
+  };
+
   // Строит задачу номера num по зерну seed (одинаковое зерно — одинаковая задача).
   OGE.generateTask = function (num, seed, opts) {
     const gen = generators[num];
@@ -61,7 +75,7 @@
     t.seed = s;
     t.topic = OGE.TOPICS[num];
     t.steps = t.steps.filter(Boolean);
-    if (t.answer.type === 'number') t.answer.value = OGE.Frac.of(t.answer.value);
+    t.answer = OGE.answer.normalize(t.answer);
     t.answerText = OGE.answer.display(t.answer);
     return t;
   };

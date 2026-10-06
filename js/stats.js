@@ -8,6 +8,7 @@
   const RECENT = 20; // по скольким последним попыткам считается доля ошибок
   const WEAK_RATE = 0.4; // с какой доли ошибок задание считается «слабым»
   const MIN_ATTEMPTS = 3;
+  const REVIEW_GOAL = 3; // сколько раз подряд решить верно, чтобы тип ушёл из «Работы над ошибками»
 
   function defaultStorage() {
     try {
@@ -18,7 +19,25 @@
   }
 
   function empty() {
-    return { v: 1, tasks: {}, variants: [] };
+    return { v: 1, tasks: {}, variants: [], review: {}, reviewFixed: 0 };
+  }
+
+  // Ключ типа задания: номер + разновидность.
+  function reviewKey(num, subtype) {
+    return num + '|' + subtype;
+  }
+
+  // Данные, сохранённые до появления «Работы над ошибками»: в список попадают
+  // разновидности, в которых уже были ошибки.
+  function seedReview(d) {
+    d.review = {};
+    Object.keys(d.tasks).forEach((num) => {
+      const subs = (d.tasks[num] && d.tasks[num].subtypes) || {};
+      Object.keys(subs).forEach((sub) => {
+        const s = subs[sub];
+        if (s && s.a > s.c) d.review[reviewKey(num, sub)] = { num: +num, subtype: sub, streak: 0, misses: s.a - s.c, addedAt: d.tasks[num].lastAt || 0, lastAt: 0 };
+      });
+    });
   }
 
   function load(storage) {
@@ -30,6 +49,8 @@
       const d = JSON.parse(raw);
       if (!d || d.v !== 1 || typeof d.tasks !== 'object') return empty();
       d.variants = Array.isArray(d.variants) ? d.variants : [];
+      if (!d.review || typeof d.review !== 'object') seedReview(d);
+      d.reviewFixed = d.reviewFixed || 0;
       return d;
     } catch {
       return empty();
@@ -59,6 +80,69 @@
     s.a++;
     if (ok) s.c++;
     t.lastAt = now || Date.now();
+    updateReview(d, num, subtype, ok, t.lastAt);
+    save(d, storage);
+    return d;
+  }
+
+  // Ошибка добавляет тип в «Работу над ошибками» и обнуляет серию верных ответов;
+  // верный ответ продлевает серию, после REVIEW_GOAL подряд тип считается отработанным.
+  function updateReview(d, num, subtype, ok, now) {
+    const key = reviewKey(num, subtype);
+    const e = d.review[key];
+    if (!ok) {
+      if (e) {
+        e.streak = 0;
+        e.misses++;
+        e.lastAt = now;
+      } else d.review[key] = { num: +num, subtype, streak: 0, misses: 1, addedAt: now, lastAt: now };
+      return;
+    }
+    if (!e) return;
+    e.streak++;
+    e.lastAt = now;
+    if (e.streak >= REVIEW_GOAL) {
+      delete d.review[key];
+      d.reviewFixed++;
+    }
+  }
+
+  // Состояние типа задания в «Работе над ошибками»: null, если его там нет.
+  function reviewState(d, num, subtype) {
+    return d.review[reviewKey(num, subtype)] || null;
+  }
+
+  // Список типов с ошибками: по номеру задания, затем по времени добавления.
+  function reviewList(d) {
+    return Object.keys(d.review)
+      .map((k) => Object.assign({ key: k }, d.review[k]))
+      .sort((a, b) => a.num - b.num || a.addedAt - b.addedAt);
+  }
+
+  // Следующий тип для повторения. Тот же тип, что только что был, не повторяется
+  // (если есть другие); типы с меньшей серией верных ответов выпадают чаще.
+  function pickReview(d, rng, lastKey) {
+    let list = reviewList(d);
+    if (!list.length) return null;
+    if (list.length > 1 && lastKey) list = list.filter((e) => e.key !== lastKey);
+    return rng.weighted(
+      list,
+      list.map((e) => REVIEW_GOAL + 1 - e.streak),
+    );
+  }
+
+  // Убрать тип из списка без решения (например, если такой разновидности больше нет).
+  function dropReview(d, key, storage) {
+    delete d.review[key];
+    save(d, storage);
+  }
+
+  // Короткое описание задачи для списка ошибок (пример условия).
+  function describeReview(num, subtype, text, storage) {
+    const d = load(storage);
+    const e = d.review[reviewKey(num, subtype)];
+    if (!e) return d;
+    e.example = String(text).slice(0, 90);
     save(d, storage);
     return d;
   }
@@ -116,5 +200,26 @@
     );
   }
 
-  OGE.stats = { KEY, RECENT, WEAK_RATE, MIN_ATTEMPTS, load, save, record, recordVariant, reset, summary, weakest, pickWeighted, empty };
+  OGE.stats = {
+    KEY,
+    RECENT,
+    WEAK_RATE,
+    MIN_ATTEMPTS,
+    REVIEW_GOAL,
+    load,
+    save,
+    record,
+    recordVariant,
+    reset,
+    summary,
+    weakest,
+    pickWeighted,
+    empty,
+    reviewKey,
+    reviewState,
+    reviewList,
+    pickReview,
+    dropReview,
+    describeReview,
+  };
 })(globalThis);

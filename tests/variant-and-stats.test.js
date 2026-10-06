@@ -86,7 +86,7 @@ test('статистика: попытки, доля ошибок по посл�
   assert.deepEqual(d.tasks[9].subtypes.linear, { a: 5, c: 1 });
 
   const s = OGE.stats.summary(d);
-  assert.equal(s.length, 19);
+  assert.equal(s.length, 22, 'статистика по всем номерам: 1–19 и вторая часть 20–22');
   const s9 = s.find((x) => x.num === 9);
   assert.equal(s9.errorRate, 0.8);
   assert.equal(s9.weak, true);
@@ -140,7 +140,7 @@ test('графики статистики строятся без ошибок',
   OGE.stats.record(3, 'tires-3', false, st);
   const s = OGE.stats.summary(OGE.stats.load(st));
   const html = OGE.charts.errorBars(s, 'errors');
-  assert.equal((html.match(/class="hbar[ "]/g) || []).length, 19);
+  assert.equal((html.match(/class="hbar[ "]/g) || []).length, 22);
   assert.ok(html.indexOf('href="#/train/3"') < html.indexOf('href="#/train/1"'), 'сортировка «сначала слабые»');
   const svg = OGE.charts.scoreChart(
     [

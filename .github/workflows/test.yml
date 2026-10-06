@@ -1,15 +1,28 @@
 name: Тесты
 
+# Автотесты при каждом изменении: на любой push в любую ветку и на pull request.
 on:
   push:
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
+    name: npm test (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20, 22]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-      - run: npm test
+          node-version: ${{ matrix.node }}
+      - name: Проверка синтаксиса всех скриптов
+        run: for f in js/*.js js/*/*.js sw.js; do node --check "$f"; done
+      - name: Автотесты
+        run: npm test

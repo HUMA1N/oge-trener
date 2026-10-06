@@ -148,6 +148,48 @@
     return svg(W, H, b, 'fig-plot', 'График функции');
   }
 
+  // ---------- График с подписанными осями и разным масштабом (задание 22) ----------
+  // opts: {xmin,xmax,ymin,ymax, curves, holes:[[x,y]], dots:[[x,y]], lines:[[[x1,y1],[x2,y2]]], width}
+  function graph(opts) {
+    const { xmin, xmax, ymin, ymax } = opts;
+    const W = opts.width || 320;
+    const xu = W / (xmax - xmin);
+    const yu = Math.min(xu, (opts.maxHeight || 300) / (ymax - ymin));
+    const H = (ymax - ymin) * yu;
+    const X = (x) => (x - xmin) * xu;
+    const Y = (y) => (ymax - y) * yu;
+    const stepFor = (unit, px) => [1, 2, 5, 10, 20, 50, 100].find((s) => s * unit >= px) || 100;
+    const gx = stepFor(xu, 11);
+    const gy = stepFor(yu, 11);
+    const lx = stepFor(xu, 28);
+    const ly = stepFor(yu, 22);
+    let b = '';
+    for (let x = Math.ceil(xmin / gx) * gx; x <= xmax; x += gx) b += el('line', { x1: X(x), y1: 0, x2: X(x), y2: H, class: 'grid' });
+    for (let y = Math.ceil(ymin / gy) * gy; y <= ymax; y += gy) b += el('line', { x1: 0, y1: Y(y), x2: W, y2: Y(y), class: 'grid' });
+    (opts.lines || []).forEach((l) => {
+      b += el('line', { x1: X(l[0][0]), y1: Y(l[0][1]), x2: X(l[1][0]), y2: Y(l[1][1]), class: 'mline' });
+    });
+    b += el('line', { x1: 0, y1: Y(0), x2: W, y2: Y(0), class: 'ln' }) + arrowRight(W, Y(0));
+    b += el('line', { x1: X(0), y1: H, x2: X(0), y2: 0, class: 'ln' }) + arrowUp(X(0), 0);
+    b += text(W - 6, Y(0) + 10, 'x', 'tx var sm');
+    b += text(X(0) + 10, 7, 'y', 'tx var sm');
+    for (let x = Math.ceil(xmin / lx) * lx; x < xmax; x += lx) {
+      if (x && X(x) > 10 && X(x) < W - 16) b += text(X(x), Y(0) + 10, fmt(x), 'tx sm');
+    }
+    for (let y = Math.ceil(ymin / ly) * ly; y < ymax; y += ly) {
+      if (y && Y(y) > 8 && Y(y) < H - 6) b += text(X(0) - 4, Y(y), fmt(y), 'tx sm', 'end');
+    }
+    b += text(X(0) - 6, Y(0) + 9, '0', 'tx sm');
+    (opts.curves || []).forEach((pts) => {
+      if (pts.length < 2) return;
+      const d = pts.map((p, i) => (i ? 'L' : 'M') + r1(X(p[0])) + ' ' + r1(Y(p[1]))).join(' ');
+      b += el('path', { d, class: 'curve' });
+    });
+    (opts.dots || []).forEach((p) => (b += el('circle', { cx: X(p[0]), cy: Y(p[1]), r: 3.5, class: 'dot' })));
+    (opts.holes || []).forEach((p) => (b += el('circle', { cx: X(p[0]), cy: Y(p[1]), r: 4, class: 'hole' })));
+    return svg(W, H, b, 'fig-plot fig-graph', opts.label || 'График функции');
+  }
+
   // Точки графика y = f(x) с отсечением по прямоугольнику и разрывом на асимптотах.
   function sampleCurve(f, box, step) {
     const curves = [];
@@ -347,5 +389,5 @@
     );
   }
 
-  OGE.draw = { numberLine, intervalLine, plot, sampleCurve, figure, grid, svg, el, text };
+  OGE.draw = { numberLine, intervalLine, plot, graph, sampleCurve, figure, grid, svg, el, text };
 })(globalThis);

@@ -869,6 +869,11 @@ table.data td:first-child {
   fill: none;
   stroke-linejoin: round;
 }
+.fig .mline {
+  stroke: var(--critical);
+  stroke-width: 1.4;
+  stroke-dasharray: 6 4;
+}
 .fig .shade {
   fill: var(--accent-soft);
 }
@@ -1339,5 +1344,169 @@ table.data td:first-child {
   color: var(--bad);
 }
 .hbar.none .hbar-val {
+  color: var(--muted);
+}
+
+/* ---------- вторая часть ---------- */
+.part-title {
+  margin: 18px 0 8px;
+  font-size: 1.05rem;
+}
+.num-grid.part2 .num-btn,
+.badge.part2 {
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+}
+.answer-input.wide {
+  flex-basis: 220px;
+}
+.ins-keys {
+  display: flex;
+  gap: 6px;
+}
+.ins-btn {
+  min-width: 44px;
+  padding: 0 10px;
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+}
+.graph-22 {
+  max-width: 360px;
+  margin: 10px auto;
+}
+.fig-graph {
+  max-height: 340px;
+}
+.small-table td,
+.small-table th {
+  text-align: center;
+}
+
+/* ---------- работа над ошибками ---------- */
+.streak {
+  display: inline-flex;
+  gap: 4px;
+  vertical-align: middle;
+  flex: none;
+}
+.streak i {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 1.5px solid var(--good);
+  background: transparent;
+}
+.streak i.on {
+  background: var(--good);
+}
+.review-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.review-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.review-list .n {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.review-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.review-ex {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.review-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 2px;
+  font-size: 0.95rem;
+}
+.review-progress.done {
+  color: var(--good);
+  font-weight: 700;
+}
+.review-note {
+  font-size: 0.95rem;
+}
+.review-note.good {
+  color: var(--good);
+  font-weight: 600;
+}
+.mode-name {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+.count {
+  display: inline-block;
+  min-width: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--critical);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+}
+.verdict-big {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--good);
+}
+
+/* ---------- установка как приложение ---------- */
+.install-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+}
+.install-card p {
+  margin: 4px 0 0;
+}
+.net-status {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--warn-bg);
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.footer {
+  max-width: 780px;
+  margin: 8px auto 0;
+  padding: 16px 16px max(20px, env(safe-area-inset-bottom));
+  text-align: center;
+  font-size: 0.9rem;
+}
+.footer a {
   color: var(--muted);
 }

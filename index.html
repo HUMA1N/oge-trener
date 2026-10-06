@@ -5,13 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta
       name="description"
-      content="Тренажёр для подготовки к ОГЭ по математике: задания 1–19 с новыми числами, мгновенная проверка, разбор ошибок, вариант на время и статистика."
+      content="Тренажёр для подготовки к ОГЭ по математике: задания 1–22 с новыми числами, мгновенная проверка, пошаговый разбор, работа над ошибками, вариант на время и статистика. Работает без интернета."
     />
     <meta name="theme-color" content="#f7f7f5" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#131312" media="(prefers-color-scheme: dark)" />
     <title>ОГЭ-тренажёр по математике</title>
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
     <link rel="manifest" href="manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="ОГЭ матем." />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="stylesheet" href="css/style.css" />
   </head>
   <body>
@@ -19,6 +24,7 @@
       <a class="brand" href="#/"
         >ОГЭ<span class="brand-long"><span class="dot">·</span>математика</span></a
       >
+      <span class="net-status" role="status" hidden>Офлайн</span>
       <nav class="topnav" aria-label="Разделы">
         <a href="#/train" data-nav="train">Тренировка</a>
         <a href="#/variant" data-nav="variant">Вариант</a>
@@ -29,6 +35,10 @@
     <main id="app" tabindex="-1">
       <noscript><p class="card">Для работы тренажёра включите JavaScript.</p></noscript>
     </main>
+
+    <footer class="footer">
+      <a href="#/install">Установить на телефон и работать без интернета</a>
+    </footer>
 
     <div id="tooltip" class="tooltip" role="tooltip" hidden></div>
 
@@ -57,6 +67,9 @@
     <script src="js/tasks/t17.js"></script>
     <script src="js/tasks/t18.js"></script>
     <script src="js/tasks/t19.js"></script>
+    <script src="js/tasks/t20.js"></script>
+    <script src="js/tasks/t21.js"></script>
+    <script src="js/tasks/t22.js"></script>
     <script src="js/variant.js"></script>
     <script src="js/stats.js"></script>
     <script src="js/chart.js"></script>
